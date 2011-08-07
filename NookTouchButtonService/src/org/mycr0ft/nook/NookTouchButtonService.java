@@ -8,12 +8,13 @@ import java.util.EventObject;
 import java.util.List;
 import java.util.Vector;
 
+import android.app.ActivityManager;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
-import android.os.RemoteException;
 import android.widget.Toast;
 
 public class NookTouchButtonService extends android.app.Service {
@@ -84,10 +85,10 @@ public class NookTouchButtonService extends android.app.Service {
 	public void onCreate() {
 		super.onCreate();
 		// TODO check that this is a Nook Touch and abort if it is not
-
+		
 		mKeyEventListenerList = new Vector<KeyEventListener>();
 
-		mNotificationHandler = new NotificationHandler();
+		mNotificationHandler = new ToastHandler();
 		
 		mServiceRunning = true;
 		mGetKeysThread = new Thread(new GetKeys());
@@ -101,24 +102,23 @@ public class NookTouchButtonService extends android.app.Service {
 	
 			@Override
 			void onKey(KeyEvent evt) {
-				/*
-				Message.obtain(
-						mNotificationHandler,
-						0,
-						evt.getSeconds() + ", " + evt.getMicroseconds() + ", "
-								+ evt.getCode() + ", " + evt.getValue())
-						.sendToTarget();
-						*/
+				
 				if ((evt.getCode() == SCANCODE_TOP_LEFT) && (evt.getValue() == KEY_RELEASED)) {
 					Intent i = new Intent(Intent.ACTION_MAIN);
-					i.addCategory(Intent.CATEGORY_HOME);
+					i.setComponent(new ComponentName("com.android.launcher", "com.android.launcher.Launcher"));
 					i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 					startActivity(i);
+				}
+				if ((evt.getCode() == SCANCODE_TOP_RIGHT) && (evt.getValue() == KEY_RELEASED)) {
+					ActivityManager am = (ActivityManager)getSystemService(ACTIVITY_SERVICE);
+					Intent in = am.getRecentTasks(1, ActivityManager.RECENT_WITH_EXCLUDED).get(0).baseIntent;
+					showToast("Action: " + in.getAction() + "\nCategory: " + in.getCategories() + "\nComponent: " 
+					+ in.getComponent().flattenToShortString() + "\nFlags: " + in.getFlags());
 				}
 			}
 	
 		});
-		postNotification("Nook Button Service started.");
+		showToast("Nook Button Service started.");
 		return super.onStartCommand(intent, flags, startId);
 	}
 
@@ -192,21 +192,21 @@ public class NookTouchButtonService extends android.app.Service {
 					}
 				}
 				p.destroy();
-			} catch (IOException e) {
-				postNotification(e.getMessage());
+			} catch (Exception e) {
+				showToast(e.getMessage());
 				e.printStackTrace();
 			} finally {
-				postNotification("Nook Button Service shutting down.");
+				showToast("Nook Button Service shutting down.");
 			}
 		}
 
 	}
 
-	private void postNotification(String msg) {
+	private void showToast(String msg) {
 		Message.obtain(mNotificationHandler, 0, msg).sendToTarget();
 	}
 	
-	private class NotificationHandler extends Handler {
+	private class ToastHandler extends Handler {
 
 		@Override
 		public void handleMessage(Message msg) {

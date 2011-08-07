@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="hello">Hello World!</string>
-    <string name="app_name">NookButtonService</string>
+    <string name="app_name">Nook Touch Button Service</string>
+    <string name="start_on_boot_summary_on">Nook Touch Button Service will start automatically at boot</string>
+    <string name="start_on_boot_summary_off">Nook Touch Button Service must be started manually</string>
+    <string name="start_at_boot">Start Nook Touch Button Service at boot up</string>
+    <string name="top_left_button_func">Top-Left button function</string>
+    <string-array name="button_names">
+        <item>Back</item>
+        <item>Menu</item>
+        <item>Home</item>
+    </string-array>
+    <string-array name="button_actions">
+        <item>BACK</item>
+        <item>MENU</item>
+        <item>HOME</item>
+    </string-array>
+        <string name="start_button_service">Start Nook Touch Button Service</string>
 </resources>
