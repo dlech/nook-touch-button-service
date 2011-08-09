@@ -81,22 +81,37 @@ public class NookTouchButtonService extends android.app.Service {
 	 */
 	public static final int EVENT_ABS = 3;
 
+	public static final int KEYCODE_NEXTPAGE = 92;
+	public static final int KEYCODE_PREVPAGE = 93;
+	public static final int KEYCODE_NEXTPAGE2 = 94;
+	public static final int KEYCODE_PREVPAGE2 = 95;
+
 	// global variables
 	private Thread mGetKeysThread;
 	private boolean mServiceRunning;
 	private List<LowLevelKeyEventListener> mLowLevelKeyEventListenerList;
 	private Handler mNotificationHandler;
-	private Instrumentation mInstrumentation;
+	private Process mSendKeysProcess;
+	private DataOutputStream mSendKeysOutputStream;
 
 	@Override
 	public void onCreate() {
 		super.onCreate();
 		// TODO check that this is a Nook Touch and abort if it is not
-		
+
 		mLowLevelKeyEventListenerList = new Vector<LowLevelKeyEventListener>();
 
 		mNotificationHandler = new ToastHandler();
-		mInstrumentation = new Instrumentation();
+
+		try {
+			mSendKeysProcess = Runtime.getRuntime().exec("su");
+			mSendKeysOutputStream = new DataOutputStream(
+					mSendKeysProcess.getOutputStream());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			showToast(e.getMessage());
+			e.printStackTrace();
+		}
 
 		mServiceRunning = true;
 		mGetKeysThread = new Thread(new GetKeys());
@@ -129,19 +144,40 @@ public class NookTouchButtonService extends android.app.Service {
 								+ "\nBase Activity: "
 								+ info.baseActivity.flattenToShortString()
 								+ "\nTop Activity: "
-								+ info.topActivity.flattenToShortString());
+								+ info.topActivity.flattenToShortString()
+								+ "\nTop Activity Package: "
+								+ topActivity.getPackageName()
+								+ "\nTop Activity Class: "
+								+ topActivity.getClassName());
 					}
 					if (evt.getScanCode() == SCANCODE_BOTTOM_RIGHT) {
-						int action = KeyEvent.ACTION_DOWN;						
+						int action = KeyEvent.ACTION_DOWN;
 						if (evt.getValue() == VALUE_KEY_RELEASED) {
 							action = KeyEvent.ACTION_UP;
-							sendKeys(new KeyEvent(action, KeyEvent.KEYCODE_MENU));
+							if (topActivity.getPackageName().startsWith("com.bn.nook")) {
+								sendKeys(new KeyEvent(action, KEYCODE_PREVPAGE));
+							} else {
+								sendKeys(new KeyEvent(action,
+										KeyEvent.KEYCODE_MENU));
+							}
 						}
-						
+					}
+					if (evt.getScanCode() == SCANCODE_BOTTOM_LEFT) {
+						int action = KeyEvent.ACTION_DOWN;
+						if (evt.getValue() == VALUE_KEY_RELEASED) {
+							action = KeyEvent.ACTION_UP;
+							if (topActivity.getPackageName().startsWith("com.bn.nook")) {
+								sendKeys(new KeyEvent(action, KEYCODE_NEXTPAGE));
+							} else {
+								sendKeys(new KeyEvent(action,
+										KeyEvent.KEYCODE_BACK));
+							}
+						}
 					}
 				} catch (Exception e) {
 					// ignore errors, so hopefully service does not crash
 					showToast(e.getMessage()); // show message for debugging
+					e.printStackTrace();
 				}
 			}
 
@@ -153,7 +189,7 @@ public class NookTouchButtonService extends android.app.Service {
 	@Override
 	public void onDestroy() {
 		mServiceRunning = false; // stop GetKeysThread
-
+		mSendKeysProcess.destroy();
 		super.onDestroy();
 	}
 
@@ -259,26 +295,9 @@ public class NookTouchButtonService extends android.app.Service {
 	private void sendKeys(KeyEvent event) {
 
 		try {
-			//mInstrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_MENU);
-			
-			long seconds = SystemClock.elapsedRealtime() / 1000;
-			long micoseconds = (SystemClock.elapsedRealtime() - (seconds * 1000)) * 1000;
-			
-			FileOutputStream fos = new FileOutputStream("/dev/input/event0");
-			DataOutputStream dos = new DataOutputStream(fos);
-			dos.writeLong(seconds);
-			dos.writeLong(micoseconds);
-			dos.writeInt(EVENT_KEY);
-			dos.writeInt(229);
-			dos.writeLong(VALUE_KEY_PRESSED);
-			dos.flush();
-			dos.writeLong(seconds);
-			dos.writeLong(micoseconds);
-			dos.writeInt(EVENT_KEY);
-			dos.writeInt(229);
-			dos.writeLong(VALUE_KEY_RELEASED);
-			dos.flush();
-			dos.close();
+			mSendKeysOutputStream.writeBytes("input keyevent "
+					+ event.getKeyCode() + "\n");
+			mSendKeysOutputStream.flush();
 
 		} catch (Exception e) {
 			// show error for debugging
